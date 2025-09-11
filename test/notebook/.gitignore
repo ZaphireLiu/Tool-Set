@@ -1,0 +1,43 @@
+# 忽略所有常见图片格式
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.tif
+*.webp
+*.ico
+*.svg
+*.psd
+*.raw
+*.cr2
+*.nef
+*.arw
+*.orf
+*.eps
+*.ai
+
+# 大写扩展名
+*.JPG
+*.JPEG
+*.PNG
+*.GIF
+*.BMP
+*.TIFF
+*.TIF
+*.WEBP
+*.ICO
+*.SVG
+*.PSD
+
+# 系统生成的图片文件
+Thumbs.db
+.DS_Store
+
+# 强制包含所有 Jupyter Notebook 文件
+!*.ipynb
+!**/*.ipynb
+
+# 但忽略 Jupyter 生成的检查点目录
+.ipynb_checkpoints/
