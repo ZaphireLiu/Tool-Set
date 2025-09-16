@@ -1,16 +1,14 @@
-# %%
 # imports
-import sys
-import time, random
-import cv2
+import sys, time, random
 import tqdm
-import pyautogui
+import cv2
 import screeninfo
+import keyboard
+import pyautogui
 import numpy as np
-from typing import List, Dict, Optional, Tuple, Union
 from PIL import Image, ImageGrab
+from typing import List, Dict, Optional, Tuple, Union
 
-# %%
 # 边框定位类
 class MultiMonitorSquareDetector:
     def __init__(self):
@@ -270,8 +268,6 @@ class MultiMonitorSquareDetector:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-
-# %%
 # 图片读取函数
 
 def get_image_info_from_clipboard():
@@ -404,100 +400,171 @@ def get_clipboard_image_info_simple():
         return width, height, center_color
     except:
         return None
+
+def greedy_sort_by_center(data_list):
+    """
+    贪心排序函数：第一个元素不变，其余元素按照与上一个元素center距离最近的原则排序
     
-
-# %%
-# 测试
-detector = MultiMonitorSquareDetector()
-
-# 列出所有显示器
-detector.list_monitors()
-
-squares = detector.find_colored_squares(
-    # monitor_index=0,
-    color_bgr=(170, 170, 170),
-    min_area=200,
-    max_area=360
-)
-
-print(f"找到 {len(squares)} 个正方形:")
-
-# 可视化
-if squares:
-    detector.visualize_results(squares)
-
-
-# %%
-# 读取剪贴板
-try:
-    w, h, color = get_clipboard_image_info_simple()
-    area = w*h
-except:
-    print("读取失败，剪贴板可能不是图片")
-
-min_area = int(area * 0.6)
-max_area = int(area * 1.5)
-
-print(area, color)
-
-detector = MultiMonitorSquareDetector()
+    Args:
+        data_list: 包含字典的列表，每个字典有'center'属性（二元组）
     
-# 列出所有显示器
-detector.list_monitors()
-
-# 在所有显示器上寻找正方形
-print("在所有显示器上寻找正方形...")
-red_squares = detector.find_colored_squares(
-    color_bgr=color,
-    min_area=min_area,
-    max_area=max_area
-)
-
-count = 0
-print(f"找到 {len(red_squares)} 个正方形")
-
-# %%
-CURRENT_CHARGE = int(input("Charges"))
-
-COLOR_BGR      = color
-MIN_AREA       = min_area
-MAX_AREA       = max_area
-
-# COLOR_BGR      = (123, 123, 123)
-# MIN_AREA       = 20
-# MAX_AREA       = 400
-
-detector = MultiMonitorSquareDetector()
+    Returns:
+        排序后的列表
+    """
+    if len(data_list) <= 1:
+        return data_list.copy()
     
-# 列出所有显示器
-detector.list_monitors()
-
-# 在所有显示器上寻找正方形
-print("在所有显示器上寻找正方形...")
-squares = detector.find_colored_squares(
-    color_bgr=COLOR_BGR,
-    min_area=MIN_AREA,
-    max_area=MAX_AREA
-)
-
-count = 0
-print(f"找到 {len(squares)} 个正方形:")
-with tqdm.trange(min(len(squares), CURRENT_CHARGE)) as t:
-    for i in t:
-        square = squares[i]
-        t.set_description_str(f"Square {i}")
-        t.set_postfix_str(f"Cord: {square['center']} Size: {square['width']}x{square['height']}={square['area']}")
-        # print(f"  显示器: {square['monitor_name']} (索引: {square['monitor_index']})")
-        # print(f"  全局坐标 - 中心: {square['center']}, 左上角: {square['top_left']}")
-        # print(f"  相对坐标 - 中心: {square['center_relative']}, 左上角: {square['top_left_relative']}")
-        x, y = square['center']
-        pyautogui.moveTo(x, y, duration=random.randint(50, 200) / 1000)
-        time.sleep(random.randint(50, 100) / 1000)
-        pyautogui.click(x, y)
-        count += 1
-        time.sleep(random.randint(50, 120) / 1000)
-        if count >= CURRENT_CHARGE:
-            break
+    # 复制列表避免修改原列表
+    remaining = data_list[1:].copy()  # 除第一个元素外的所有元素
+    result = [data_list[0]]  # 结果列表，第一个元素不变
     
+    # 计算两点间的欧几里得距离
+    def distance(center1, center2):
+        return ((center1[0] - center2[0]) ** 2 + (center1[1] - center2[1]) ** 2) ** 0.5
+    
+    # 贪心选择：每次选择与当前最后一个元素center距离最近的
+    while remaining:
+        current_center = result[-1]['center']
+        
+        # 找到距离最近的元素
+        min_distance = float('inf')
+        closest_index = 0
+        
+        for i, item in enumerate(remaining):
+            dist = distance(current_center, item['center'])
+            if dist < min_distance:
+                min_distance = dist
+                closest_index = i
+        
+        # 将最近的元素添加到结果中，并从剩余列表中移除
+        result.append(remaining.pop(closest_index))
+    
+    return result
+
+should_exit    = False
+color          = None
+area           = 0
+min_multiplier = 0.5
+max_multiplier = 2
+square_tol     = 0.2
+
+def opt_func_1():
+    try:
+        global color, area
+        ret = get_clipboard_image_info_simple()
+        if ret is None: return
+        w, h, color = ret
+        area = w*h
+        
+        min_area = int(area * min_multiplier)
+        max_area = int(area * max_multiplier)
+
+        print(area, color)
+
+        detector = MultiMonitorSquareDetector()
+        # 列出所有显示器
+        detector.list_monitors()
+
+        # 在所有显示器上寻找正方形
+        print("在所有显示器上寻找正方形...")
+        red_squares = detector.find_colored_squares(
+            color_bgr=color,
+            min_area=min_area,
+            max_area=max_area
+        )
+        print(f"找到 {len(red_squares)} 个正方形")
+        
+    except:
+        print("读取失败，剪贴板可能不是图片")
+        
+def opt_func_2():
+    global color, area
+    min_area = int(area * min_multiplier)
+    max_area = int(area * max_multiplier)
+    detector = MultiMonitorSquareDetector()
+    squares = detector.find_colored_squares(
+        # monitor_index=0,
+        color_bgr=color,
+        min_area=min_area,
+        max_area=max_area
+    )
+    if squares:
+        detector.visualize_results(squares)
+    
+def opt_func_3():
+    global should_exit, color, area
+    min_area = int(area * min_multiplier)
+    max_area = int(area * max_multiplier)
+    should_exit = False
+    
+    detector = MultiMonitorSquareDetector()
+    # 列出所有显示器
+    detector.list_monitors()
+
+    # 在所有显示器上寻找正方形
+    print("在所有显示器上寻找正方形...")
+    squares = detector.find_colored_squares(
+        color_bgr=color,
+        min_area=min_area,
+        max_area=max_area
+    )
+    
+    count = 0
+    print(f"找到 {len(squares)} 个正方形")
+    try:
+        input_str = input("Charges：")
+        current_charge = int(input_str) if len(input_str) > 0 and not (input_str is None) else len(squares)
+    except:
+        current_charge = len(squares)
+        
+    sorted_squares = greedy_sort_by_center(squares[:min(len(squares), current_charge)])
+    with tqdm.trange(min(len(sorted_squares), current_charge)) as t:
+        for i in t:
+            if should_exit: break
+            square = sorted_squares[i]
+            t.set_description_str(f"Square {i}")
+            t.set_postfix_str(f"Cord: {square['center']} Size: {square['width']}x{square['height']}={square['area']}")
+            # print(f"  显示器: {square['monitor_name']} (索引: {square['monitor_index']})")
+            # print(f"  全局坐标 - 中心: {square['center']}, 左上角: {square['top_left']}")
+            # print(f"  相对坐标 - 中心: {square['center_relative']}, 左上角: {square['top_left_relative']}")
+            x, y = square['center']
+            pyautogui.moveTo(x, y, duration=random.randint(80, 150) / 1000)
+            time.sleep(random.randint(30, 80) / 1000)
+            pyautogui.click(x, y)
+            count += 1
+            time.sleep(random.randint(30, 80) / 1000)
+            if count >= current_charge:
+                break
 
 
+def opt_func_4():
+    pass
+
+def on_f2_press():
+    global should_exit
+    should_exit = True
+    print("\n检测到F2键，准备退出...")
+# 注册F2键监听
+keyboard.on_press_key('f2', lambda _: on_f2_press())
+
+while True:
+    print("""
+        ---------------------------------
+            1. 读取剪贴板生成识别模板
+            2. 显示识别结果
+            3. 绘图
+        ---------------------------------
+            """)
+    try:
+        option = int(input("输入选项："))
+    except: 
+        continue
+    
+    if option == 1:
+        opt_func_1()
+    elif option == 2:
+        opt_func_2()
+    elif option == 3:
+        opt_func_3()
+    elif option == 4:
+        opt_func_4()
