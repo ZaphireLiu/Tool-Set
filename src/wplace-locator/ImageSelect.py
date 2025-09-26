@@ -8,7 +8,7 @@ from PySide6.QtGui import QPixmap, QPainter, QPen, QColor, QWheelEvent, QMouseEv
 from PIL import Image
 import numpy as np
 
-class ImagePreviewWidget(QLabel):
+class ImageSelectWidget(QLabel):
     """图像预览和选择控件 - 支持右键拖拽移动"""
     
     def __init__(self, pil_image):
@@ -314,7 +314,7 @@ class ImagePreviewWidget(QLabel):
         }
 
 
-class ImagePreviewDialog(QDialog):
+class ImageSelectDialog(QDialog):
     """图像预览对话框 - 更新了按钮功能"""
     
     def __init__(self, pil_image, parent=None):
@@ -329,8 +329,8 @@ class ImagePreviewDialog(QDialog):
         layout = QVBoxLayout(self)
         
         # 创建图像预览控件
-        self.preview_widget = ImagePreviewWidget(pil_image)
-        layout.addWidget(self.preview_widget)
+        self.select_widget = ImageSelectWidget(pil_image)
+        layout.addWidget(self.select_widget)
         
         # 创建按钮布局
         button_layout = QHBoxLayout()
@@ -367,15 +367,15 @@ class ImagePreviewDialog(QDialog):
     
     def on_reset_view(self):
         """重置视图"""
-        self.preview_widget.reset_view()
+        self.select_widget.reset_view()
     
     def on_reset_selection(self):
         """重置选择"""
-        self.preview_widget.reset_selection()
+        self.select_widget.reset_selection()
     
     def on_confirm(self):
         """确认选择"""
-        self.selection_data = self.preview_widget.get_selection_data()
+        self.selection_data = self.select_widget.get_selection_data()
         if self.selection_data is None:
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "警告", "请先选择一个区域")
@@ -387,14 +387,14 @@ class ImagePreviewDialog(QDialog):
         """获取选择区域数据"""
         return self.selection_data
 
-def show_image_preview_dialog(pil_image, parent=None):
+def show_image_select_dialog(pil_image, parent=None):
     """显示图像预览对话框的便捷函数"""
     # 确保有QApplication实例
     app = QApplication.instance()
     if app is None:
         app = QApplication([])
     
-    dialog = ImagePreviewDialog(pil_image, parent)
+    dialog = ImageSelectDialog(pil_image, parent)
     
     if dialog.exec() == QDialog.Accepted:
         return dialog.get_selection_data()

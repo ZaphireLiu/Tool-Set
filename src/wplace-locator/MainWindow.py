@@ -10,7 +10,8 @@ from PIL import Image, ImageGrab
 import screeninfo
 import pyautogui
 
-from ImagePreview import show_image_preview_dialog
+from ImageSelect import show_image_select_dialog
+# from ImagePreview import show_image_preview_dialog
 
 class MainWindow(QMainWindow):
     
@@ -178,7 +179,7 @@ class MainWindow(QMainWindow):
         self.set_progress(10)
         
         # 显示图像预览对话框进行区域选择
-        result = show_image_preview_dialog(pil_image, self)
+        result = show_image_select_dialog(pil_image, self)
         
         if result:
             self.draw_area_data = result
@@ -206,7 +207,7 @@ class MainWindow(QMainWindow):
         self.set_progress(15)
         
         # 显示图像预览对话框进行区域选择
-        result = show_image_preview_dialog(pil_image, self)
+        result = show_image_select_dialog(pil_image, self)
         
         if result:
             self.color_area_data = result
