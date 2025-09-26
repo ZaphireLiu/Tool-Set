@@ -441,6 +441,114 @@ def greedy_sort_by_center(data_list):
     
     return result
 
+def calculate_distance(point1, point2):
+    """计算两点之间的欧几里得距离"""
+    return ((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2) ** 0.5
+
+def are_adjacent(square1, square2, max_distance_ratio=1.5):
+    """
+    判断两个格子是否相邻
+    max_distance_ratio: 最大距离与格子大小的比值，用于判断是否相邻
+    """
+    distance = calculate_distance(square1['center'], square2['center'])
+    avg_size = (square1['width'] + square1['height'] + square2['width'] + square2['height']) / 4
+    return distance <= avg_size * max_distance_ratio
+
+def group_adjacent_squares(squares):
+    """
+    将相邻的格子分组，返回连续路径列表
+    每个路径包含需要连续绘制的格子序列
+    """
+    if not squares:
+        return []
+    
+    groups = []
+    used = set()
+    
+    for i, start_square in enumerate(squares):
+        if i in used:
+            continue
+            
+        # 开始一个新的路径
+        current_path = [start_square]
+        current_indices = [i]
+        used.add(i)
+        
+        # 尝试扩展当前路径
+        extended = True
+        while extended:
+            extended = False
+            last_square = current_path[-1]
+            
+            # 寻找与路径末尾相邻的未使用格子
+            for j, candidate_square in enumerate(squares):
+                if j in used:
+                    continue
+                    
+                if are_adjacent(last_square, candidate_square):
+                    current_path.append(candidate_square)
+                    current_indices.append(j)
+                    used.add(j)
+                    extended = True
+                    break
+        
+        groups.append({
+            'path': current_path,
+            'indices': current_indices,
+            'is_continuous': len(current_path) > 1
+        })
+    
+    return groups
+
+def draw_single_square(square):
+    """绘制单个格子 - 使用鼠标点击"""
+    x, y = square['center']
+    pyautogui.moveTo(x, y, duration=random.randint(80, 150) / 1000)
+    time.sleep(random.randint(20, 60) / 1000)
+    pyautogui.click(x, y)
+    time.sleep(random.randint(30, 80) / 1000)
+
+def draw_continuous_path(path):
+    """使用空格+鼠标移动方式绘制连续路径"""
+    if len(path) < 2:
+        draw_single_square(path[0])
+        return
+    
+    # 移动到起始位置
+    start_x, start_y = path[0]['center']
+    pyautogui.moveTo(start_x, start_y, duration=random.randint(80, 150) / 1000)
+    time.sleep(random.randint(20, 40) / 1000)
+    
+    # 按下空格键开始连续绘制模式
+    pyautogui.keyDown('space')
+    time.sleep(random.randint(20, 40) / 1000)
+    
+    try:
+        # 依次移动到路径上的每个格子中心
+        # 鼠标经过的地方会自动被绘制
+        for i, square in enumerate(path):
+            if should_exit:
+                break
+                
+            x, y = square['center']
+            
+            # 移动到当前格子
+            if i == 0:
+                # 第一个格子已经移动过了，只需要确保在正确位置
+                pyautogui.moveTo(x, y, duration=random.randint(30, 60) / 1000)
+            else:
+                # 后续格子使用较慢的移动速度，确保路径完整
+                duration = random.randint(100, 200) / 1000
+                pyautogui.moveTo(x, y, duration=duration)
+            
+            # 在每个格子上稍作停留，确保绘制完成
+            time.sleep(random.randint(30, 60) / 1000)
+    
+    finally:
+        # 释放空格键，退出连续绘制模式
+        pyautogui.keyUp('space')
+        time.sleep(random.randint(50, 100) / 1000)
+
 should_exit    = False
 color          = None
 area           = 0
@@ -509,34 +617,95 @@ def opt_func_3():
         max_area=max_area
     )
     
-    count = 0
     print(f"找到 {len(squares)} 个正方形")
-    if len(squares) == 0: return
+    if len(squares) == 0: 
+        return
+    
     try:
         input_str = input("Charges：")
         current_charge = int(input_str) if len(input_str) > 0 and not (input_str is None) else len(squares)
     except:
         current_charge = len(squares)
-        
-    sorted_squares = greedy_sort_by_center(squares[:min(len(squares), current_charge)])
-    with tqdm.trange(min(len(sorted_squares), current_charge)) as t:
-        for i in t:
-            if should_exit: break
-            square = sorted_squares[i]
-            t.set_description_str(f"Square {i}")
-            t.set_postfix_str(f"Cord: {square['center']} Size: {square['width']}x{square['height']}={square['area']}")
-            # print(f"  显示器: {square['monitor_name']} (索引: {square['monitor_index']})")
-            # print(f"  全局坐标 - 中心: {square['center']}, 左上角: {square['top_left']}")
-            # print(f"  相对坐标 - 中心: {square['center_relative']}, 左上角: {square['top_left_relative']}")
-            x, y = square['center']
-            pyautogui.moveTo(x, y, duration=random.randint(80, 150) / 1000)
-            time.sleep(random.randint(20, 60) / 1000)
-            pyautogui.click(x, y)
-            count += 1
-            time.sleep(random.randint(30, 80) / 1000)
-            if count >= current_charge:
+    
+    # 限制处理的格子数量
+    squares_to_process = squares[:min(len(squares), current_charge)]
+    
+    # 使用贪心算法排序，确保相邻格子尽可能连续
+    sorted_squares = greedy_sort_by_center(squares_to_process)
+    
+    # 将格子按相邻性分组
+    print("分析格子邻接关系...")
+    groups = group_adjacent_squares(sorted_squares)
+    
+    # 统计连续路径和单独格子
+    continuous_groups = [g for g in groups if g['is_continuous']]
+    single_squares = [g for g in groups if not g['is_continuous']]
+    
+    total_continuous_squares = sum(len(g['path']) for g in continuous_groups)
+    total_single_squares = len(single_squares)
+    
+    print(f"优化结果:")
+    print(f"  - {len(continuous_groups)} 条连续路径，共 {total_continuous_squares} 个格子 (使用空格+移动)")
+    print(f"  - {total_single_squares} 个独立格子 (使用点击)")
+    print(f"  - 预计提速: {total_continuous_squares - len(continuous_groups)} 次操作")
+    
+    total_squares = sum(len(g['path']) for g in groups)
+    processed_count = 0
+    
+    with tqdm.tqdm(total=total_squares, desc="绘制进度") as pbar:
+        # 优先处理连续路径（效率更高）
+        for group_idx, group in enumerate(continuous_groups, 1):
+            if should_exit:
                 break
-
+                
+            path = group['path']
+            pbar.set_description(f"连续路径 {group_idx}/{len(continuous_groups)} ({len(path)}格)")
+            
+            try:
+                draw_continuous_path(path)
+                processed_count += len(path)
+                pbar.update(len(path))
+                
+                # 路径间的间隔，让系统稳定
+                time.sleep(random.randint(150, 300) / 1000)
+                
+            except Exception as e:
+                print(f"\n连续绘制路径失败，回退到单个绘制: {e}")
+                # 如果连续绘制失败，回退到单个绘制
+                for square in path:
+                    if should_exit:
+                        break
+                    try:
+                        draw_single_square(square)
+                        processed_count += 1
+                        pbar.update(1)
+                    except:
+                        processed_count += 1
+                        pbar.update(1)
+        
+        # 处理单独的格子
+        for square_idx, group in enumerate(single_squares, 1):
+            if should_exit:
+                break
+                
+            square = group['path'][0]
+            pbar.set_description(f"独立格子 {square_idx}/{len(single_squares)}")
+            
+            try:
+                draw_single_square(square)
+                processed_count += 1
+                pbar.update(1)
+                
+            except Exception as e:
+                print(f"\n绘制单个格子失败: {e}")
+                processed_count += 1
+                pbar.update(1)
+    
+    efficiency_gain = total_continuous_squares - len(continuous_groups) if len(continuous_groups) > 0 else 0
+    print(f"\n绘制完成！")
+    print(f"  - 总共处理: {processed_count} 个格子")
+    print(f"  - 减少操作: {efficiency_gain} 次")
+    print(f"  - 效率提升: {efficiency_gain/total_squares*100:.1f}%" if total_squares > 0 else "")
 
 def opt_func_4():
     pass
@@ -545,27 +714,46 @@ def on_f2_press():
     global should_exit
     should_exit = True
     print("\n检测到F2键，准备退出...")
+
 # 注册F2键监听
 keyboard.on_press_key('f2', lambda _: on_f2_press())
 
-while True:
-    print("""
-        ---------------------------------
-            1. 读取剪贴板生成识别模板
-            2. 显示识别结果
-            3. 绘图
-        ---------------------------------
-            """)
-    try:
-        option = int(input("输入选项："))
-    except: 
-        continue
+# 主程序循环
+if __name__ == "__main__":
+    print("wplace自动绘图工具 - 优化版")
+    print("F2键可在绘制过程中中断操作")
     
-    if option == 1:
-        opt_func_1()
-    elif option == 2:
-        opt_func_2()
-    elif option == 3:
-        opt_func_3()
-    elif option == 4:
-        opt_func_4()
+    while True:
+        print("""
+---------------------------------
+    1. 读取剪贴板生成识别模板
+    2. 显示识别结果
+    3. 绘图
+---------------------------------
+            """)
+        try:
+            option = int(input("输入选项："))
+        except: 
+            continue
+        
+        if option == 1:
+            print("正在读取剪贴板图片...")
+            opt_func_1()
+        elif option == 2:
+            if color is None or area == 0:
+                print("请先执行选项1读取剪贴板图片")
+                continue
+            print("显示识别结果...")
+            opt_func_2()
+        elif option == 3:
+            if color is None or area == 0:
+                print("请先执行选项1读取剪贴板图片")
+                continue
+            print("开始绘图...")
+            print("按F2键可随时中断绘制")
+            opt_func_3()
+        elif option == 4:
+            print("功能4暂未实现")
+            opt_func_4()
+        else:
+            print("无效选项，请重新输入")
