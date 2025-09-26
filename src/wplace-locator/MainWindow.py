@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, 
     QHBoxLayout, QPushButton, QLabel, QSlider, 
     QLineEdit, QSpacerItem, QSizePolicy, QProgressBar,
-    QFileDialog, QMessageBox
+    QFileDialog, QMessageBox, QCheckBox
 )
 from PySide6.QtCore import Qt
 from PIL import Image, ImageGrab
@@ -19,10 +19,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("绘制工具")
         self.setMinimumSize(600, 350)
         
-        # 存储选择的区域数据
-        self.draw_area_data = None
-        self.color_area_data = None
-        
         # 创建中央窗口部件
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -32,25 +28,38 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(20)
         main_layout.setContentsMargins(20, 20, 20, 20)
         
+        # 新增一行：显示预览
+        row_e1_layout = QHBoxLayout()
+        
+        self.show_preview_checkbox = QCheckBox("显示预览")
+        self.show_preview_checkbox.setChecked(False)
+        self.show_preview_checkbox.setToolTip("显示预览窗口")
+        
+        row_e1_layout.addWidget(self.show_preview_checkbox)
+        row_e1_layout.addStretch()
+        
         # 第1行：框选按钮
         row1_layout = QHBoxLayout()
         
-        self.btn_select_draw_area = QPushButton("框选绘制区")
-        self.btn_select_color_area = QPushButton("框选颜色区")
+        self.btn_select_draw_area    = QPushButton("框选绘制区")
+        self.btn_select_color_area   = QPushButton("框选颜色区")
+        self.btn_select_analyze_area = QPushButton("框选分析区")
         
         self.btn_select_draw_area.clicked.connect(self.on_select_draw_area)
         self.btn_select_color_area.clicked.connect(self.on_select_color_area)
+        self.btn_select_analyze_area.clicked.connect(self.on_select_analyze_area)
         
         row1_layout.addWidget(self.btn_select_draw_area)
         row1_layout.addWidget(self.btn_select_color_area)
+        row1_layout.addWidget(self.btn_select_analyze_area)
         row1_layout.addStretch()
         
         # 第2行：模板和绘制按钮
         row2_layout = QHBoxLayout()
         
-        btn_read_clipboard = QPushButton("读取剪贴板模板")
+        btn_read_clipboard   = QPushButton("读取剪贴板模板")
         btn_preview_template = QPushButton("预览模板")
-        btn_specified_draw = QPushButton("指定绘制")
+        btn_specified_draw   = QPushButton("指定绘制")
         
         btn_read_clipboard.clicked.connect(self.on_read_clipboard)
         btn_preview_template.clicked.connect(self.on_preview_template)
@@ -121,6 +130,7 @@ class MainWindow(QMainWindow):
         row6_layout.addStretch()
         
         # 将所有行添加到主布局
+        main_layout.addLayout(row_e1_layout)
         main_layout.addLayout(row1_layout)
         main_layout.addLayout(row2_layout)
         main_layout.addLayout(row3_layout)
@@ -153,10 +163,16 @@ class MainWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
+        # 光标偏移数据
         self.offset_x = 0
         self.offset_y = 0
-        self.status_label.setText('')
+        # 选择区域数据
+        self.draw_area_data    = None
+        self.color_area_data   = None
+        self.analyze_area_data = None
+        
         self.__draw_layout()
+        self.status_label.setText('')
         self.__get_monitors_info()
         
     def load_image_file(self):
@@ -171,12 +187,10 @@ class MainWindow(QMainWindow):
     # 框选区域的回调函数
     def on_select_draw_area(self):
         """框选绘制区域"""
-        
         # 加载图像文件
         pil_image = self.load_image_file()
         
         self.set_status_text("正在框选绘制区域...")
-        self.set_progress(10)
         
         # 显示图像预览对话框进行区域选择
         result = show_image_select_dialog(pil_image, self)
@@ -184,19 +198,15 @@ class MainWindow(QMainWindow):
         if result:
             self.draw_area_data = result
             self.set_status_text(f"绘制区域已选择 - 尺寸: {result['size']}")
-            self.set_progress(30)
             
             # 更新按钮文本显示已选择
             self.btn_select_draw_area.setText(f"绘制区({result['size'][0]}x{result['size'][1]})")
             
         else:
             self.set_status_text("取消选择绘制区域")
-            self.set_progress(0)
         
     def on_select_color_area(self):
         """框选颜色区域"""
-        self.set_status_text("请选择要加载的图像文件...")
-        
         # 加载图像文件
         pil_image = self.load_image_file()
         if pil_image is None:
@@ -204,7 +214,6 @@ class MainWindow(QMainWindow):
             return
         
         self.set_status_text("正在框选颜色区域...")
-        self.set_progress(15)
         
         # 显示图像预览对话框进行区域选择
         result = show_image_select_dialog(pil_image, self)
@@ -212,16 +221,41 @@ class MainWindow(QMainWindow):
         if result:
             self.color_area_data = result
             self.set_status_text(f"颜色区域已选择 - 尺寸: {result['size']}")
-            self.set_progress(35)
             
             # 更新按钮文本显示已选择
             self.btn_select_color_area.setText(f"颜色区({result['size'][0]}x{result['size'][1]})")
 
         else:
             self.set_status_text("取消选择颜色区域")
-            self.set_progress(0)
+            
+    def on_select_analyze_area(self):
+        """框选自动分析区域"""
+        # 加载图像文件
+        pil_image = self.load_image_file()
+        if pil_image is None:
+            self.set_status_text("取消选择图像文件")
+            return
+        
+        self.set_status_text("正在框选自动分析区域...")
+        
+        # 显示图像预览对话框进行区域选择
+        result = show_image_select_dialog(pil_image, self)
+        
+        if result:
+            self.analyze_area_data = result
+            self.set_status_text(f"自动分析区域已选择 - 尺寸: {result['size']}")
+            
+            # 更新按钮文本显示已选择
+            self.btn_select_analyze_area.setText(f"自动分析区({result['size'][0]}x{result['size'][1]})")
+
+        else:
+            self.set_status_text("取消选择自动分析区域")
     
-    # 进度条控制函数
+    # 变量函数
+    def get_preview_option(self):
+        """获取勾选选项"""
+        return self.show_preview_checkbox.isChecked()
+    
     def set_progress(self, value):
         """设置进度条值 (0-100)"""
         if 0 <= value <= 100:
@@ -232,9 +266,9 @@ class MainWindow(QMainWindow):
         return self.progress_bar.value()
     
     # 状态文字控制函数
-    def set_status_text(self, text, append=False):
+    def set_status_text(self, text, to_cmd=True, append=False):
         """更改状态文字内容"""
-        print(text)
+        if to_cmd: print(text)
         set_text_preset = self.status_label.text() + '\n' if append else ''
         self.status_label.setText(f"{set_text_preset}{text}")
     
@@ -250,6 +284,10 @@ class MainWindow(QMainWindow):
     def get_color_area_data(self):
         """获取颜色区域数据"""
         return self.color_area_data
+    
+    def get_analyze_area_data(self):
+        """获取自动分析区域数据"""
+        return self.analyze_area_data
         
     # 其他按钮的回调函数
     def on_read_clipboard(self):
@@ -273,7 +311,7 @@ class MainWindow(QMainWindow):
     def on_slider_changed(self, value):
         """滑动条值改变时更新输入框"""
         self.dimming_input.setText(str(value))
-        self.set_status_text(f"Dimming 设置为 {value}")
+        self.set_status_text(f"Dimming 设置为 {value}", to_cmd=False)
         
     def on_input_changed(self, text):
         """输入框值改变时更新滑动条"""
