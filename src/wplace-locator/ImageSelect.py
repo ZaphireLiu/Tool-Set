@@ -309,7 +309,7 @@ class ImageSelectWidget(QLabel):
         
         return {
             'image': cropped_image,
-            'coordinates': (left, top, right, bottom),
+            'coord': (left, top, right, bottom),
             'size': (right - left, bottom - top)
         }
 

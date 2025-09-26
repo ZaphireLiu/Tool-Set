@@ -11,7 +11,7 @@ import screeninfo
 import pyautogui
 
 from ImageSelect import show_image_select_dialog
-# from ImagePreview import show_image_preview_dialog
+from ImagePreview import show_image_preview_dialog
 
 class MainWindow(QMainWindow):
     
@@ -167,9 +167,12 @@ class MainWindow(QMainWindow):
         self.offset_x = 0
         self.offset_y = 0
         # 选择区域数据
-        self.draw_area_data    = None
-        self.color_area_data   = None
-        self.analyze_area_data = None
+        self.draw_area_data     = None
+        self.color_area_data    = None
+        self.analyze_area_data  = None
+        # 模板图像数据
+        self.drawing_template   = None
+        self.full_auto_template = None
         
         self.__draw_layout()
         self.status_label.setText('')
@@ -227,7 +230,7 @@ class MainWindow(QMainWindow):
 
         else:
             self.set_status_text("取消选择颜色区域")
-            
+
     def on_select_analyze_area(self):
         """框选自动分析区域"""
         # 加载图像文件

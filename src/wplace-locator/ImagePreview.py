@@ -61,7 +61,6 @@ class ImagePreviewWidget(QLabel):
         super().resizeEvent(event)
         self.update_display()
 
-
 class ImagePreviewDialog(QDialog):
     """精简版图像预览对话框"""
     
@@ -84,8 +83,7 @@ class ImagePreviewDialog(QDialog):
         super().resizeEvent(event)
         # preview_widget会自动响应大小变化
 
-
-def show_image_preview(pil_image, parent=None):
+def show_image_preview_dialog(pil_image, parent=None):
     """显示精简版图像预览对话框的便捷函数"""
     # 确保有QApplication实例
     app = QApplication.instance()
@@ -95,25 +93,24 @@ def show_image_preview(pil_image, parent=None):
     dialog = ImagePreviewDialog(pil_image, parent)
     dialog.exec()
 
-
 # 示例用法
-def main():
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication(sys.argv)
+# def main():
+#     app = QApplication.instance()
+#     if app is None:
+#         app = QApplication(sys.argv)
     
-    # 创建示例图像
-    try:
-        pil_image = Image.open("test_image.jpg")
-    except:
-        pil_image = Image.new('RGB', (800, 600), color=(100, 150, 200))
-        from PIL import ImageDraw
-        draw = ImageDraw.Draw(pil_image)
-        draw.rectangle([50, 50, 200, 150], fill=(255, 0, 0))
-        draw.rectangle([300, 200, 500, 400], fill=(0, 255, 0))
-        draw.text((250, 50), "示例图像", fill=(255, 255, 255))
+#     # 创建示例图像
+#     try:
+#         pil_image = Image.open("test_image.jpg")
+#     except:
+#         pil_image = Image.new('RGB', (800, 600), color=(100, 150, 200))
+#         from PIL import ImageDraw
+#         draw = ImageDraw.Draw(pil_image)
+#         draw.rectangle([50, 50, 200, 150], fill=(255, 0, 0))
+#         draw.rectangle([300, 200, 500, 400], fill=(0, 255, 0))
+#         draw.text((250, 50), "示例图像", fill=(255, 255, 255))
     
-    show_image_preview(pil_image)
+#     show_image_preview_dialog(pil_image)
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
