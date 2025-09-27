@@ -1,5 +1,6 @@
 # imports
 import sys, time, random
+import math
 import tqdm
 import cv2
 import screeninfo
@@ -578,9 +579,9 @@ def greedy_sort_by_center(data_list):
 should_exit    = False
 color          = None
 area           = 0
-min_multiplier = 0.5
-max_multiplier = 2
-square_tol     = 0.2
+min_multiplier = 0.6
+max_multiplier = 4
+square_tol     = 0.25
 
 def opt_func_1():
     try:
@@ -590,7 +591,6 @@ def opt_func_1():
         # w, h, color = ret
         # area = w*h
         clipboard_content = ImageGrab.grabclipboard()
-        print(clipboard_content)
         loc = ColorLocator()
         try: 
             dimming = int(input("输入dimming值(默认25): "))
@@ -667,42 +667,76 @@ def opt_func_3():
         current_charge = len(squares)
         
     sorted_squares = greedy_sort_by_center(squares[:min(len(squares), current_charge)])
+    
+    avg_area = sum(s['area'] for s in squares) / len(squares)
+    avg_length = math.sqrt(avg_area) * 3
+    upper_len = int(math.ceil(avg_length * 1.25))
+    lower_len = int(math.floor(avg_length * 0.75))
+    
+    in_range = lambda x, y, z: x >= min(y, z) and x <= max(y, z)
+    pressed_down = False
+    dist = 100
     with tqdm.trange(min(len(sorted_squares), current_charge)) as t:
         for i in t:
-            if should_exit: break
+            if should_exit: 
+                print("检测到按键中断操作")
+                break
             square = sorted_squares[i]
             t.set_description_str(f"Square {i}")
-            t.set_postfix_str(f"Cord: {square['center']} Size: {square['width']}x{square['height']}={square['area']}")
-            # print(f"  显示器: {square['monitor_name']} (索引: {square['monitor_index']})")
-            # print(f"  全局坐标 - 中心: {square['center']}, 左上角: {square['top_left']}")
-            # print(f"  相对坐标 - 中心: {square['center_relative']}, 左上角: {square['top_left_relative']}")
+            t.set_postfix_str(f"{square['center']}|{square['width']}x{square['height']}={square['area']}|{pressed_down}")
             x, y = square['center']
-            pyautogui.moveTo(x, y, duration=random.randint(80, 150) / 1000)
-            time.sleep(random.randint(10, 20) / 1000)
-            pyautogui.click(x, y)
+            duration = min(random.randint(80, 150), dist/1000*random.randint(8, 12)/10)
+            pyautogui.moveTo(x, y, duration=duration)
+            if i == 0:
+                time.sleep(random.randint(30, 80)/1000)
+                pyautogui.click(x, y)
+                time.sleep(random.randint(30, 80)/1000)
+                
+            if not pressed_down:
+                pressed_down = True
+                # pyautogui.keyDown('space')
+                keyboard.press('space')
+                
             count += 1
-            time.sleep(random.randint(10, 30) / 1000)
-            if count >= current_charge:
+            if count >= current_charge or i >= len(squares) - 1:
+                pressed_down = False
+                time.sleep(random.randint(10, 50)/1000)
+                # pyautogui.keyUp('space')
+                keyboard.release('space')
                 break
-
+            
+            next_square = sorted_squares[i+1]
+            x1, y1 = square['center']
+            x2, y2 = next_square['center']
+            dist = abs(x1-x2) + abs(y1-y2)
+            if not in_range(dist, upper_len, lower_len):
+                pressed_down = False
+                time.sleep(random.randint(10, 50)/1000)
+                # pyautogui.keyUp('space')
+                keyboard.release('space')
+                
+    time.sleep(random.randint(50, 100)/1000)
+    # pyautogui.keyUp('space')
+    keyboard.release('space')
 
 def opt_func_4():
-    pass
+    quit()
 
 def on_f2_press():
     global should_exit
     should_exit = True
-    print("\n检测到F2键，准备退出...")
+    
 # 注册F2键监听
 keyboard.on_press_key('f2', lambda _: on_f2_press())
 
 while True:
     print("""
-        ---------------------------------
-            1. 读取剪贴板生成识别模板
-            2. 显示识别结果
-            3. 绘图
-        ---------------------------------
+---------------------------------
+    1. 读取剪贴板生成识别模板
+    2. 显示识别结果
+    3. 绘图
+    4. 退出
+---------------------------------
             """)
     try:
         option = int(input("输入选项："))
