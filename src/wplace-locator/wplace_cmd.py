@@ -264,6 +264,7 @@ def print_info():
         print(f"  缩放百分比: {monitor['scale_percentage']}")
         print()
 
+import os
 import cv2
 import tqdm
 import math
@@ -271,6 +272,7 @@ import time
 import random
 import keyboard
 import pyautogui
+import subprocess
 import numpy as np
 from PIL import Image, ImageGrab, ImageDraw
 
@@ -505,6 +507,21 @@ def opt_func_3():
                 keyboard.release('space')
 
 def opt_func_4():
+    cmds = [
+        r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
+        r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+        r'D:\Software\OperaGX\opera.exe'
+    ]
+
+    for cmd in cmds:
+        if os.path.exists(cmd):
+            try:
+                subprocess.Popen([cmd, 'wplace.live'])
+                print(f'已启动浏览器: {os.path.basename(cmd)}')
+            except Exception as e:
+                print(f'启动失败: {e}')
+
+def opt_func_5():
     quit()
 
 def on_f2_press():
@@ -521,7 +538,8 @@ if __name__ == "__main__":
 1. 读取剪贴板生成识别模板
 2. 显示识别结果
 3. 绘图
-4. 退出
+4. 一键启动浏览器
+5. 退出
 -------------------------
         """)
         try:
@@ -537,3 +555,5 @@ if __name__ == "__main__":
             opt_func_3()
         elif option == 4:
             opt_func_4()
+        elif option == 5:
+            opt_func_5()
