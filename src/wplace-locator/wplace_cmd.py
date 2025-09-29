@@ -471,6 +471,7 @@ def opt_func_3():
         for i in t:
             if should_exit: 
                 print("检测到按键中断操作")
+                keyboard.release('space')
                 break
             cell = sorted_cells[i]
             t.set_description_str(f"Cell {i}")
